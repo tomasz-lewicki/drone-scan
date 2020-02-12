@@ -1,0 +1,3 @@
+[submodule "simulation"]
+	path = simulation
+	url = https://github.com/tomek-l/fire-simulation.git
