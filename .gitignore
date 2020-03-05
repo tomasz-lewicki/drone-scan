@@ -129,3 +129,8 @@ dmypy.json
 .pyre/
 .vscode
 sim_output*
+
+# Mavlink files 
+*.parm
+*.tlog
+*.tlog.raw
