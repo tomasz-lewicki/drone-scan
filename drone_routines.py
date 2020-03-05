@@ -97,15 +97,21 @@ class Drone:
                 await asyncio.get_event_loop().shutdown_asyncgens()
                 return
 
+    async def print_pos(self, belief):
+        async for pos in self._drone.telemetry.position():
+            print(pos)
+
     async def print_battery(self):
         async for battery in self._drone.telemetry.battery():
             print(f"Battery: {battery.remaining_percent}")
 
-    async def measure(self, belief, wildfire_state_array):
+    async def measure(self, belief, space_transform, ground_truth):
         async for position in self._drone.telemetry.position():
             # sample the truth in current position & append to belief
-            coords = sp.latlon2xy(position.latitude_deg, position.longitude_deg)
-            belief.append((coords, truth[int(coords[0]), int(coords[1])]))
+            coords = space_transform.latlon2xy(position.latitude_deg, position.longitude_deg)
+            fire_value = ground_truth[int(coords[0]), int(coords[1])]
+            print(fire_value)
+            belief.append(coords, fire_value)
 
     async def plot_belief(self):
         async for pos in self._drone.telemetry.position():
@@ -113,54 +119,3 @@ class Drone:
             measurements = np.array([((*b[0]), b[1]) for b in belief])
             plt.scatter(measurements[:,0], measurements[:,1], c=measurements[:,2])
             plt.pause(0.01)
-
-
-if __name__ == "__main__":
-
-    drone = Drone()
-
-    belief = []
-
-    #fill in the space with 2D gaussian 
-    N_CELLS = 100 # 1 for cell equiv. to 1 m
-
-    x, y = np.meshgrid(np.linspace(-1,1,N_CELLS), np.linspace(-1,1,N_CELLS)) #100x100 cells
-    d = np.sqrt(x*x+y*y)
-    sigma, mu = 1.0, 0.0
-    truth = np.exp(-( (d-mu)**2 / ( 2.0 * sigma**2 ) ) )
-
-    # define space
-    # sp = Space(origin=(37.331553, -121.882767)) # south-west corner of campus
-    sp = Space(origin=(37.335404, -121.883400)) # fountain
-    # generate trajectory
-    traj = []
-    step = 5 # [grid step of 10m]
-    for x in range(0,N_CELLS,step):
-        traj.append((x,0))
-        traj.append((x,N_CELLS)) # that's assuming N_CELLS is equal to search space size
-        traj.append((x+step/2,N_CELLS))
-        traj.append((x+step/2,0))
-
-    # get trajectory in global frame
-    traj_global = list(map(lambda p: sp.xy2latlon(*p), traj))
-
-    # do the drone stuff
-    asyncio.ensure_future(drone.run_scan(traj_global))
-    asyncio.ensure_future(drone.print_mission_progress())
-    asyncio.ensure_future(drone.print_battery())
-    asyncio.ensure_future(drone.measure())
-    asyncio.get_event_loop().run_until_complete(drone.observe_is_in_air())
-
-
-    # convert belief space to numpy array
-    measurements = np.array([((*b[0]), b[1]) for b in belief])
-
-    plt.scatter(measurements[:,0], measurements[:,1], c=measurements[:,2], s=1)
-
-    # 3D plotting would be:
-    # >>> from mpl_toolkits.mplot3d import Axes3D
-    # >>> fig = plt.figure()
-    # >>> ax = fig.add_subplot(111, projection='3d')
-    # >>> ax.scatter(measurements[:,0], measurements[:,1], measurements[:,2], c=measurements[:,2]
-
-    plt.show()
