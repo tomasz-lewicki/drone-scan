@@ -49,15 +49,15 @@ class Drone:
         self._mav = start_mavlink(connection_url=url)
         self._drone = mavsdk_connect(host="127.0.0.1")
 
-    async def run_scan(self, traj):
+    async def run_scan(self, traj, alt=5, speed=10):
 
         mission_items = []
 
         for p in traj:
             mission_items.append(MissionItem(p[0],
                                             p[1],
-                                            25,
-                                            10,
+                                            alt,
+                                            speed,
                                             True,
                                             float('nan'),
                                             float('nan'),
@@ -109,13 +109,10 @@ class Drone:
         async for position in self._drone.telemetry.position():
             # sample the truth in current position & append to belief
             coords = space_transform.latlon2xy(position.latitude_deg, position.longitude_deg)
-            fire_value = ground_truth[int(coords[0]), int(coords[1])]
-            print(fire_value)
-            belief.append(coords, fire_value)
+            try:
+                fire_value = ground_truth[int(coords[0]), int(coords[1])]
+            except IndexError:
+                fire_value = -1
+            # print(f'found {fire_value} fire')
+            belief.append((coords, fire_value))
 
-    async def plot_belief(self):
-        async for pos in self._drone.telemetry.position():
-            global belief
-            measurements = np.array([((*b[0]), b[1]) for b in belief])
-            plt.scatter(measurements[:,0], measurements[:,1], c=measurements[:,2])
-            plt.pause(0.01)

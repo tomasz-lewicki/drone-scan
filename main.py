@@ -12,17 +12,34 @@ from mavsdk import start_mavlink
 from mavsdk import connect as mavsdk_connect
 from mavsdk import (MissionItem)
 
-N_CELLS = 100
+SPACE_SIZE_X = 50 # space size in meters
+SPACE_SIZE_Y = 50
+N_CELLS = 50
 
-async def print_gui(wildfire_array):
+async def print_gui(wildfire_array, space):
+    # could be instead iterating over an async belief generator
     while(True):
-        plt.plot(np.random.rand(2,10))
-        plt.show(block=False)
-        plt.pause(.00001)
-        await asyncio.sleep(1)
+        global belief
+        # measurements = np.array([((*b[0]), b[1]) for b in belief])
+        if len(belief) > 0:
+            (x,y) = belief[-1][0]
+            (lat, lon) = space.xy2latlon(x,y)
 
-def create_grid_trajectory(x_len=30, y_len=20, x_res=10):
-    # generate trajectory
+            cell_size_x = SPACE_SIZE_X/N_CELLS
+            cell_size_y = SPACE_SIZE_Y/N_CELLS
+
+            cell_x, cell_y = x/cell_size_x, y/cell_size_y
+
+            plt.imshow(wildfire_array)
+            plt.scatter(cell_x, cell_y, c='white')
+            plt.show(block=False)
+            plt.pause(.00001)
+
+        await asyncio.sleep(.1)
+
+
+def create_grid_trajectory(x_len=30, y_len=30, x_res=10):
+    # generate grid trajectory as a list of tuples in local frame(x,y)
 
     traj = []
     for x in range(0, x_len, x_res):
@@ -31,8 +48,17 @@ def create_grid_trajectory(x_len=30, y_len=20, x_res=10):
         traj.append((x+x_res/2,y_len))
         traj.append((x+x_res/2,0))
 
-    # get trajectory in global frame
-    return list(map(lambda p: sp.xy2latlon(*p), traj))
+    return traj
+
+async def plot_drone_position(drone):
+    async for pos in drone.telemetry.position():
+
+        #measurements = np.array([((*b[0]), b[1]) for b in belief])
+        #plt.scatter(measurements[:,0], measurements[:,1], c=measurements[:,2])
+        plt.scatter(pos[0],pos[1])
+        plt.show(block=False)
+        plt.pause(.00001)
+        await asyncio.sleep(1)
 
 # Before starting:
 # docker run --rm -it --env PX4_HOME_LAT=37.335404 --env PX4_HOME_LON=-121.883400 --env PX4_HOME_ALT=488.0 jonasvautherin/px4-gazebo-headless:v1.9.2
@@ -43,7 +69,6 @@ if __name__ == '__main__':
 
     ######################################################################
     # Create Environment
-
     fuel = make_fuel_map(N_CELLS, tree_density=0.55)
     wildfire_state = np.zeros_like(fuel) # should the type be dtype=np.bool?
     ignite_center(wildfire_state)
@@ -76,20 +101,26 @@ if __name__ == '__main__':
     ######################################################################
     # Drone
     # TODO: will this work for 100 drones?
-
-    belief = []
-    traj_global = create_grid_trajectory(x_len=50, y_len=10, x_res=10)
     
+    loop = asyncio.get_event_loop()
     drone = Drone()
-    # asyncio.ensure_future(drone.run_scan(traj_global)) 
-    # asyncio.ensure_future(drone.print_mission_progress())
+    belief = []
+
+    traj_local = create_grid_trajectory(x_len=SPACE_SIZE_X, y_len=SPACE_SIZE_Y, x_res=10)
+    traj_global = list(map(lambda p: sp.xy2latlon(*p), traj_local))
+
+    asyncio.ensure_future(drone.run_scan(traj_global)) 
+    
+
+    asyncio.ensure_future(drone.print_mission_progress())
     asyncio.ensure_future(drone.print_pos(belief))
-    # asyncio.ensure_future(drone.measure(belief=belief, space_transform=sp, ground_truth=wildfire_state))
-    asyncio.get_event_loop().run_until_complete(drone.observe_is_in_air())
+    asyncio.ensure_future(print_gui(wildfire_state, sp))
+    asyncio.ensure_future(drone.measure(belief=belief, space_transform=sp, ground_truth=wildfire_state))
+
+    loop.run_forever()
 
     ######################################################################
     # GUI
-    asyncio.ensure_future(print_gui(wildfire_state))
     
     # plot trajectory
     # traj_x = list(map(lambda b: b[0][1], belief))
