@@ -7,8 +7,9 @@ import cv2
 import copy
 
 from threading import Thread
-from simulation.sim import run, make_fuel_map, ignite_center
-from drone_routines import Drone, Space
+from simulation import run, make_fuel_map, ignite_center, state_to_rgb
+from drone_routines import Drone
+from geometry import Space
 
 from mavsdk import start_mavlink
 from mavsdk import connect as mavsdk_connect
@@ -62,21 +63,6 @@ async def plot_drone_position(drone):
         plt.show(block=False)
         plt.pause(.00001)
         await asyncio.sleep(1)
-
-def state_to_rgb(state_arr, fuel_arr):
-    red = copy.copy(state_arr)
-    red[red>0] = 255 # make fire cells max intensity
-    green = copy.copy(fuel_arr)
-    green[red>0] = 0
-
-    # if we need to resize
-    #red = cv2.resize(red, img_shape, interpolation=cv2.INTER_NEAREST)
-    #green = cv2.resize(green, img_shape, interpolation=cv2.INTER_NEAREST)
-
-    blue = np.zeros_like(green)
-    im = np.stack([red, green, blue], axis=-1)
-
-    return im
 
 # Before starting:
 # docker run --rm -it --env PX4_HOME_LAT=37.335404 --env PX4_HOME_LON=-121.883400 --env PX4_HOME_ALT=488.0 jonasvautherin/px4-gazebo-headless:v1.9.2
