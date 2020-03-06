@@ -3,6 +3,8 @@ import numpy as np
 import datetime, time
 import os
 import matplotlib.pyplot as plt
+import cv2
+import copy
 
 from threading import Thread
 from simulation.sim import run, make_fuel_map, ignite_center
@@ -12,14 +14,14 @@ from mavsdk import start_mavlink
 from mavsdk import connect as mavsdk_connect
 from mavsdk import (MissionItem)
 
+
 SPACE_SIZE_X = 50 # space size in meters
 SPACE_SIZE_Y = 50
-N_CELLS = 50
+N_CELLS = 100
 
-async def print_gui(wildfire_array, space):
+async def print_gui(fire_arr, space, fuel_arr, belief):
     # could be instead iterating over an async belief generator
     while(True):
-        global belief
         # measurements = np.array([((*b[0]), b[1]) for b in belief])
         if len(belief) > 0:
             (x,y) = belief[-1][0]
@@ -27,16 +29,17 @@ async def print_gui(wildfire_array, space):
 
             cell_size_x = SPACE_SIZE_X/N_CELLS
             cell_size_y = SPACE_SIZE_Y/N_CELLS
-
             cell_x, cell_y = x/cell_size_x, y/cell_size_y
+            img = state_to_rgb(fire_arr, fuel_arr)
 
-            plt.imshow(wildfire_array)
+            plt.imshow(img)
+            
+            # plt.imshow(fire_arr)
             plt.scatter(cell_x, cell_y, c='white')
             plt.show(block=False)
             plt.pause(.00001)
 
         await asyncio.sleep(.1)
-
 
 def create_grid_trajectory(x_len=30, y_len=30, x_res=10):
     # generate grid trajectory as a list of tuples in local frame(x,y)
@@ -59,6 +62,21 @@ async def plot_drone_position(drone):
         plt.show(block=False)
         plt.pause(.00001)
         await asyncio.sleep(1)
+
+def state_to_rgb(state_arr, fuel_arr):
+    red = copy.copy(state_arr)
+    red[red>0] = 255 # make fire cells max intensity
+    green = copy.copy(fuel_arr)
+    green[red>0] = 0
+
+    # if we need to resize
+    #red = cv2.resize(red, img_shape, interpolation=cv2.INTER_NEAREST)
+    #green = cv2.resize(green, img_shape, interpolation=cv2.INTER_NEAREST)
+
+    blue = np.zeros_like(green)
+    im = np.stack([red, green, blue], axis=-1)
+
+    return im
 
 # Before starting:
 # docker run --rm -it --env PX4_HOME_LAT=37.335404 --env PX4_HOME_LON=-121.883400 --env PX4_HOME_ALT=488.0 jonasvautherin/px4-gazebo-headless:v1.9.2
@@ -84,7 +102,7 @@ if __name__ == '__main__':
         'fuel_array': fuel,
         'burn_rate': 3,
         'n_steps': 100,
-        'ignition_prob': 0.3,
+        'ignition_prob': 0.25,
         'n_epochs': 10,
         'save_dir': None
         # 'save_dir' = f"sim_output_cells={str(wildfire_state.shape)}_steps={str(sim_args['n_epochs']*sim_args['n_steps'])}_ignition_prob={str(sim_args['ignition_prob'])}_burn_rate={str(sim_args['burn_rate'])}_time={str(datetime.datetime.now())}"
@@ -114,7 +132,7 @@ if __name__ == '__main__':
 
     asyncio.ensure_future(drone.print_mission_progress())
     asyncio.ensure_future(drone.print_pos(belief))
-    asyncio.ensure_future(print_gui(wildfire_state, sp))
+    asyncio.ensure_future(print_gui(wildfire_state, sp, fuel, belief))
     asyncio.ensure_future(drone.measure(belief=belief, space_transform=sp, ground_truth=wildfire_state))
 
     loop.run_forever()
