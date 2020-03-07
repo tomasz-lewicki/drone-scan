@@ -11,10 +11,6 @@ from simulation import run, make_fuel_map, ignite_center, state_to_rgb
 from drone_routines import Drone
 from geometry import Space
 
-from mavsdk import start_mavlink
-from mavsdk import connect as mavsdk_connect
-from mavsdk import (MissionItem)
-
 
 SPACE_SIZE_X = 50 # space size in meters
 SPACE_SIZE_Y = 50
@@ -90,7 +86,8 @@ if __name__ == '__main__':
         'n_steps': 100,
         'ignition_prob': 0.25,
         'n_epochs': 10,
-        'save_dir': None
+        'save_dir': None,
+        'loop_min_dur': 1 # throttle to 1FPS
         # 'save_dir' = f"sim_output_cells={str(wildfire_state.shape)}_steps={str(sim_args['n_epochs']*sim_args['n_steps'])}_ignition_prob={str(sim_args['ignition_prob'])}_burn_rate={str(sim_args['burn_rate'])}_time={str(datetime.datetime.now())}"
     }
 
@@ -108,14 +105,16 @@ if __name__ == '__main__':
     
     loop = asyncio.get_event_loop()
     drone = Drone()
+
+    loop.run_until_complete(drone._drone.connect(system_address=drone._url))
+
     belief = []
 
     traj_local = create_grid_trajectory(x_len=SPACE_SIZE_X, y_len=SPACE_SIZE_Y, x_res=10)
     traj_global = list(map(lambda p: sp.xy2latlon(*p), traj_local))
 
-    asyncio.ensure_future(drone.run_scan(traj_global)) 
-    
 
+    asyncio.ensure_future(drone.run_scan(traj_global)) 
     asyncio.ensure_future(drone.print_mission_progress())
     asyncio.ensure_future(drone.print_pos(belief))
     asyncio.ensure_future(print_gui(wildfire_state, sp, fuel, belief))
