@@ -134,3 +134,4 @@ sim_output*
 *.parm
 *.tlog
 *.tlog.raw
+*.png
