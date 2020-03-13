@@ -1,15 +1,19 @@
 import asyncio
+import time
 
-from mavsdk import start_mavlink
-from mavsdk import connect as mavsdk_connect
+from mavsdk import System
 from mavsdk import (MissionItem)
 
 
 class Drone:
 
     def __init__(self, url="udp://:14552"):
-        self._mav = start_mavlink(connection_url=url)
-        self._drone = mavsdk_connect(host="127.0.0.1")
+        # self._mav = start_mavlink(connection_url=url)
+        self._drone = System()
+        self._url = url
+        
+    async def connect(self, url):
+        await self._drone.connect(system_address=url)
 
     async def run_scan(self, traj, alt=5, speed=10):
 

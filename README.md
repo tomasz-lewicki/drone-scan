@@ -1,5 +1,10 @@
 Basic code for a single-agent drone exploring & updating its belief space. Works with PX4 drone over mavsdk
 
+```shell
+git clone https://github.com/tomek-l/drone-scan.git
+cd drone-scan
+git submodule update --init --recursive
+```
 
 Start a physical drone and make sure there's a MAVLINK stream on udp:localhost:14550.
 Alternatively, run a simulated drone:
