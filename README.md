@@ -1,16 +1,36 @@
-Basic code for a single-agent drone exploring & updating its belief space. Works with PX4 drone over mavsdk
+# Multi-agent drone exploration
+This project contains code for wildfire exploration with a swarm of simulated drones.
 
+# Quickstart
+Clone the repository
 ```shell
 git clone https://github.com/tomek-l/drone-scan.git
 cd drone-scan
 git submodule update --init --recursive
 ```
 
-Start a physical drone and make sure there's a MAVLINK stream on udp:localhost:14550.
-Alternatively, run a simulated drone:
+Install the required python packages
+```shell
+pip3 install -r requirements.txt
+```
+
+Run the simulation:
+```shell
+python3 scan_fleet_simulation.py
+```
+
+<!-- 
+# Run with MAVLINK drones (work in progress)
+
+Install mavsdk
+```
+pip3 install mavsdk
+```
+
+Run a docker container with a simulated PX4 drone:
 
 ```shell
-docker run --rm -it --env PX4_HOME_LAT=37.335404 --env PX4_HOME_LON=-121.883400 --env PX4_HOME_ALT=488.0 jonasvautherin/px4-gazebo-headless:v1.9.2
+docker run --rm -it --env PX4_HOME_LAT=37.335404 --env PX4_HOME_LON=-121.883400 --env PX4_HOME_ALT=488.0 jonasvautherin/px4-gazebo-headless:v1.10.1
 ```
 
 Run mavproxy
@@ -21,7 +41,7 @@ mavproxy.py --master=udp:0.0.0.0:14550 --out=udp:localhost:14551 --out=udp:local
 
 Run the script
 ```
-python3 main.py 
+python3 scan_with_mavlink_drone.py
 ```
 
 This will do a few things:
@@ -31,6 +51,4 @@ This will do a few things:
 - generate trajectory for the drone
 - sample the space with a given interval
 
-The drone will proceed to autonomously follow a grid trajectory and update it's belief about the simulated wildfire (stored in ```belief```)
-
-![](grid.png)
+![](docs/grid.png) -->
